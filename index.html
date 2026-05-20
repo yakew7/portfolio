@@ -566,6 +566,9 @@ section { margin-bottom: 80px; }
   </div>
 </div>
 
+<!-- GSAP for spring animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
 <!-- THREE.JS via CDN -->
 <script type="importmap">
 {
@@ -588,321 +591,431 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.4;
 
 const scene = new THREE.Scene();
-scene.background = null; // transparent so CSS bg shows
+scene.background = null;
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 0.6, 4.5);
+// ─── CAMERA ────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.5, 6.5);
 
+// ─── ORBIT CONTROLS ────────────────────────────────────────────────────────
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.dampingFactor = 0.05;
+controls.dampingFactor = 0.06;
 controls.enablePan = false;
-controls.minDistance = 2.5;
-controls.maxDistance = 8;
-controls.minPolarAngle = Math.PI / 6;
-controls.maxPolarAngle = Math.PI / 1.8;
+controls.minDistance = 3;
+controls.maxDistance = 10;
+controls.minPolarAngle = Math.PI / 8;
+controls.maxPolarAngle = Math.PI / 1.9;
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.6;
+controls.autoRotateSpeed = 0.5;
+controls.target.set(0, 0.3, 0);
 
 // ─── LIGHTS ────────────────────────────────────────────────────────────────
-// Accent green fill (matching --accent: #4fffb0)
-const accentLight = new THREE.PointLight(0x4fffb0, 3.5, 12);
-accentLight.position.set(2, 2, 2);
+const ambient = new THREE.AmbientLight(0x0a1a12, 1.2);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
+keyLight.position.set(5, 8, 5);
+keyLight.castShadow = true;
+scene.add(keyLight);
+
+const accentLight = new THREE.PointLight(0x4fffb0, 4.0, 14);
+accentLight.position.set(3, 3, 3);
 scene.add(accentLight);
 
-// Purple rim (matching --accent2: #7c3aed)
-const rimLight = new THREE.PointLight(0x7c3aed, 2, 10);
-rimLight.position.set(-3, 1, -2);
+const rimLight = new THREE.PointLight(0x7c3aed, 2.5, 12);
+rimLight.position.set(-4, 2, -3);
 scene.add(rimLight);
 
-// Amber warm fill (matching --accent3: #f59e0b)
-const warmLight = new THREE.PointLight(0xf59e0b, 0.8, 8);
-warmLight.position.set(0, -2, 3);
+const warmLight = new THREE.PointLight(0xf59e0b, 1.2, 10);
+warmLight.position.set(0, -2, 4);
 scene.add(warmLight);
 
-// Screen glow — green tinted, from front-center
-const screenLight = new THREE.PointLight(0x4fffb0, 2.0, 6);
-screenLight.position.set(0, 0.3, 1.5);
+const screenLight = new THREE.PointLight(0x4fffb0, 0, 8);
+screenLight.position.set(0, 0.5, 2);
 scene.add(screenLight);
-
-// Ambient fill
-const ambient = new THREE.AmbientLight(0x0a1a12, 0.8);
-scene.add(ambient);
 
 // ─── MATERIALS ─────────────────────────────────────────────────────────────
 const bodyMat = new THREE.MeshPhysicalMaterial({
-  color: 0x14171f,
-  metalness: 0.7,
-  roughness: 0.25,
-  envMapIntensity: 1.0,
+  color: 0x16191f,
+  metalness: 0.85,
+  roughness: 0.18,
+  reflectivity: 0.9,
 });
-const hingeEdgeMat = new THREE.MeshPhysicalMaterial({
-  color: 0x1a1e28,
-  metalness: 0.9,
-  roughness: 0.1,
+const edgeMat = new THREE.MeshPhysicalMaterial({
+  color: 0x1e2230,
+  metalness: 0.95,
+  roughness: 0.05,
 });
-const screenBezelMat = new THREE.MeshStandardMaterial({
-  color: 0x0b0e15,
-  roughness: 0.6,
-  metalness: 0.2,
+const bezelMat = new THREE.MeshStandardMaterial({
+  color: 0x07090f,
+  roughness: 0.7,
+  metalness: 0.1,
 });
 const keyboardMat = new THREE.MeshStandardMaterial({
-  color: 0x111318,
-  roughness: 0.8,
-  metalness: 0.15,
+  color: 0x0e1016,
+  roughness: 0.85,
+  metalness: 0.1,
 });
+const tpMat = new THREE.MeshPhysicalMaterial({
+  color: 0x131720,
+  roughness: 0.25,
+  metalness: 0.6,
+});
+const rubberFeetMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 1 });
 
-// Screen texture with code lines
+// ─── SCREEN TEXTURE ────────────────────────────────────────────────────────
+const SC_W = 1280, SC_H = 800;
 const screenCanvas = document.createElement('canvas');
-screenCanvas.width = 1024; screenCanvas.height = 680;
+screenCanvas.width = SC_W; screenCanvas.height = SC_H;
 const ctx = screenCanvas.getContext('2d');
 
-function drawScreen() {
-  // Background
+// Draw a rich code editor screen
+function drawScreen(open) {
+  const alpha = open === undefined ? 1 : open;
+  ctx.clearRect(0, 0, SC_W, SC_H);
+
+  // BG
   ctx.fillStyle = '#0b0e15';
-  ctx.fillRect(0, 0, 1024, 680);
+  ctx.fillRect(0, 0, SC_W, SC_H);
+
+  if (alpha < 0.05) { screenTexture.needsUpdate = true; return; }
+
+  ctx.globalAlpha = alpha;
 
   // Subtle grid
-  ctx.strokeStyle = 'rgba(79,255,176,0.03)';
+  ctx.strokeStyle = 'rgba(79,255,176,0.025)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < 1024; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 680); ctx.stroke(); }
-  for (let i = 0; i < 680; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1024, i); ctx.stroke(); }
-
-  // Line numbers column bg
-  ctx.fillStyle = 'rgba(255,255,255,0.02)';
-  ctx.fillRect(0, 0, 50, 680);
+  for (let i = 0; i < SC_W; i += 48) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, SC_H); ctx.stroke(); }
+  for (let i = 0; i < SC_H; i += 48) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(SC_W, i); ctx.stroke(); }
 
   // Tab bar
-  ctx.fillStyle = '#0d1119';
-  ctx.fillRect(0, 0, 1024, 36);
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(0, 0, 180, 36);
+  ctx.fillStyle = '#090c13';
+  ctx.fillRect(0, 0, SC_W, 42);
+  ctx.fillStyle = '#0f1420';
+  ctx.fillRect(0, 0, 200, 42);
   ctx.fillStyle = '#4fffb0';
-  ctx.fillRect(0, 33, 180, 3);
-  ctx.font = '13px monospace';
+  ctx.fillRect(0, 39, 200, 3);
+  ctx.font = '600 14px monospace';
   ctx.fillStyle = '#e8eaf0';
-  ctx.fillText('main.py', 20, 22);
-  ctx.fillStyle = '#4b5563';
-  ctx.fillText('model.py', 200, 22);
-  ctx.fillText('utils.py', 320, 22);
+  ctx.fillText('main.py', 22, 26);
+  ctx.fillStyle = '#374151';
+  ctx.font = '14px monospace';
+  ctx.fillText('model.py', 220, 26);
+  ctx.fillText('utils.py', 380, 26);
 
-  // Code lines data: [indent, width, color, opacity]
-  const lines = [
-    { ln: 1,  indent: 60,  parts: [{ w: 110, c: '#7c3aed', o: 0.9 }, { w: 20, c: '#fff', o: 0.3 }, { w: 180, c: '#4fffb0', o: 0.8 }] },
-    { ln: 2,  indent: 60,  parts: [] },
-    { ln: 3,  indent: 60,  parts: [{ w: 60, c: '#4fffb0', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 90, c: '#e8eaf0', o: 0.6 }, { w: 10, c: '#fff', o: 0.2 }, { w: 60, c: '#f59e0b', o: 0.8 }] },
-    { ln: 4,  indent: 78,  parts: [{ w: 70, c: '#4466ff', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 180, c: '#e8eaf0', o: 0.5 }] },
-    { ln: 5,  indent: 78,  parts: [{ w: 80, c: '#4466ff', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 120, c: '#4fffb0', o: 0.6 }] },
-    { ln: 6,  indent: 78,  parts: [{ w: 50, c: '#f59e0b', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 160, c: '#e8eaf0', o: 0.4 }] },
-    { ln: 7,  indent: 60,  parts: [] },
-    { ln: 8,  indent: 60,  parts: [{ w: 60, c: '#4fffb0', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 70, c: '#e8eaf0', o: 0.6 }, { w: 10, c: '#fff', o: 0.2 }, { w: 40, c: '#f59e0b', o: 0.8 }] },
-    { ln: 9,  indent: 78,  parts: [{ w: 200, c: '#6b7280', o: 0.7 }] },
-    { ln: 10, indent: 78,  parts: [{ w: 90, c: '#4466ff', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 120, c: '#4fffb0', o: 0.6 }, { w: 10, c: '#fff', o: 0.2 }, { w: 60, c: '#7c3aed', o: 0.8 }] },
-    { ln: 11, indent: 78,  parts: [{ w: 70, c: '#4466ff', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 80, c: '#e8eaf0', o: 0.4 }] },
-    { ln: 12, indent: 78,  parts: [{ w: 110, c: '#e8eaf0', o: 0.3 }] },
-    { ln: 13, indent: 60,  parts: [] },
-    { ln: 14, indent: 60,  parts: [{ w: 50, c: '#4fffb0', o: 0.9 }, { w: 10, c: '#fff', o: 0.2 }, { w: 90, c: '#e8eaf0', o: 0.6 }] },
-    { ln: 15, indent: 78,  parts: [{ w: 200, c: '#6b7280', o: 0.5 }] },
-    { ln: 16, indent: 78,  parts: [{ w: 60, c: '#f59e0b', o: 0.8 }, { w: 10, c: '#fff', o: 0.2 }, { w: 140, c: '#4fffb0', o: 0.5 }] },
-    { ln: 17, indent: 78,  parts: [{ w: 80, c: '#4466ff', o: 0.7 }, { w: 10, c: '#fff', o: 0.2 }, { w: 100, c: '#e8eaf0', o: 0.4 }] },
-    { ln: 18, indent: 78,  parts: [{ w: 110, c: '#7c3aed', o: 0.6 }] },
-    { ln: 19, indent: 60,  parts: [{ w: 60, c: '#4fffb0', o: 0.8 }] },
+  // Sidebar
+  ctx.fillStyle = 'rgba(255,255,255,0.015)';
+  ctx.fillRect(0, 42, 56, SC_H);
+  // Line numbers
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.font = '12px monospace';
+  for (let i = 1; i <= 22; i++) {
+    ctx.fillText(String(i).padStart(2,' '), 16, 42 + 30 + (i - 1) * 30 + 12);
+  }
+
+  // Code lines
+  const lH = 30, sY = 42 + 30, sX = 72;
+  const codeLinesData = [
+    [[120,'#7c3aed',0.9],[16,'#4b5563',0.6],[200,'#4fffb0',0.85]],
+    [],
+    [[80,'#4fffb0',0.8],[12,'#4b5563',0.4],[100,'#e8eaf0',0.6],[12,'#4b5563',0.4],[70,'#f59e0b',0.85]],
+    [[20,'#4b5563',0.3],[90,'#4466ff',0.75],[12,'#4b5563',0.4],[220,'#e8eaf0',0.5]],
+    [[20,'#4b5563',0.3],[100,'#4466ff',0.75],[12,'#4b5563',0.4],[140,'#4fffb0',0.65]],
+    [[20,'#4b5563',0.3],[60,'#f59e0b',0.75],[12,'#4b5563',0.4],[180,'#e8eaf0',0.45]],
+    [],
+    [[80,'#4fffb0',0.8],[12,'#4b5563',0.4],[80,'#e8eaf0',0.6],[12,'#4b5563',0.4],[50,'#f59e0b',0.85]],
+    [[20,'#4b5563',0.3],[240,'#6b7280',0.55]],
+    [[20,'#4b5563',0.3],[110,'#4466ff',0.75],[12,'#4b5563',0.4],[140,'#4fffb0',0.65],[12,'#4b5563',0.4],[80,'#7c3aed',0.85]],
+    [[20,'#4b5563',0.3],[90,'#4466ff',0.75],[12,'#4b5563',0.4],[100,'#e8eaf0',0.45]],
+    [[20,'#4b5563',0.3],[130,'#e8eaf0',0.3]],
+    [],
+    [[60,'#4fffb0',0.95],[12,'#4b5563',0.4],[110,'#e8eaf0',0.65]],
+    [[20,'#4b5563',0.3],[240,'#6b7280',0.5]],
+    [[20,'#4b5563',0.3],[70,'#f59e0b',0.8],[12,'#4b5563',0.4],[160,'#4fffb0',0.55]],
+    [[20,'#4b5563',0.3],[100,'#4466ff',0.75],[12,'#4b5563',0.4],[120,'#e8eaf0',0.45]],
+    [[20,'#4b5563',0.3],[130,'#7c3aed',0.6]],
+    [[80,'#4fffb0',0.85]],
+    [],
+    [[60,'#4fffb0',0.9],[12,'#4b5563',0.4],[80,'#e8eaf0',0.6]],
+    [],
   ];
 
-  const lineH = 30;
-  const startY = 56;
-
-  lines.forEach(({ ln, indent, parts }) => {
-    const y = startY + (ln - 1) * lineH;
-    // Line number
-    ctx.font = '11px monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillText(String(ln).padStart(2, ' '), 12, y + 10);
-
-    // Code parts
-    let x = indent;
-    parts.forEach(({ w, c, o }) => {
-      ctx.globalAlpha = o;
+  codeLinesData.forEach((parts, i) => {
+    let x = sX;
+    parts.forEach(([w, c, o]) => {
+      ctx.globalAlpha = alpha * o;
       ctx.fillStyle = c;
-      ctx.fillRect(x, y, w, 7);
-      x += w + 10;
+      const h = 8;
+      const borderRadius = 3;
+      ctx.beginPath();
+      ctx.roundRect(x, sY + i * lH, w, h, borderRadius);
+      ctx.fill();
+      x += w + 12;
     });
-    ctx.globalAlpha = 1;
   });
+  ctx.globalAlpha = alpha;
 
-  // Cursor blink (static for texture — animated via update)
-  ctx.fillStyle = '#4fffb0';
-  ctx.globalAlpha = 0.9;
-  ctx.fillRect(60, startY + 19 * lineH, 3, 18);
-  ctx.globalAlpha = 1;
-
-  // Scanline effect
-  for (let i = 0; i < 680; i += 4) {
-    ctx.fillStyle = 'rgba(0,0,0,0.06)';
-    ctx.fillRect(0, i, 1024, 2);
+  // Scanlines
+  for (let i = 0; i < SC_H; i += 4) {
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    ctx.fillRect(0, i, SC_W, 2);
   }
 
   // Vignette
-  const vig = ctx.createRadialGradient(512, 340, 200, 512, 340, 600);
+  const vig = ctx.createRadialGradient(SC_W/2, SC_H/2, SC_H*0.25, SC_W/2, SC_H/2, SC_H*0.8);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.4)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.45)');
   ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, 1024, 680);
-}
+  ctx.fillRect(0, 0, SC_W, SC_H);
 
-drawScreen();
+  ctx.globalAlpha = 1;
+  screenTexture.needsUpdate = true;
+}
 
 const screenTexture = new THREE.CanvasTexture(screenCanvas);
 const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
 
-// ─── BUILD LAPTOP GEOMETRY ─────────────────────────────────────────────────
+// Draw dark (closed) screen initially
+drawScreen(0);
+
+// ─── BUILD LAPTOP ──────────────────────────────────────────────────────────
 const laptopGroup = new THREE.Group();
 scene.add(laptopGroup);
 
-// Base / keyboard chassis
-const baseGeo = new THREE.BoxGeometry(3.2, 0.08, 2.1);
+// ── BASE CHASSIS ──
+const baseGeo = new THREE.BoxGeometry(3.4, 0.09, 2.3);
 const base = new THREE.Mesh(baseGeo, bodyMat);
-base.position.set(0, 0, 0);
 base.castShadow = true;
 laptopGroup.add(base);
 
-// Keyboard surface (slightly recessed)
-const kbGeo = new THREE.BoxGeometry(2.7, 0.01, 1.6);
+// Bottom edge roundness strips (simulate chamfer)
+const chamferMats = [edgeMat, edgeMat, edgeMat, edgeMat];
+[[-1.68,0,0],[1.68,0,0],[0,0,-1.13],[0,0,1.13]].forEach(([x,y,z], i) => {
+  const isX = i < 2;
+  const geo = new THREE.BoxGeometry(isX ? 0.04 : 3.36, 0.09, isX ? 2.3 : 0.04);
+  const m = new THREE.Mesh(geo, edgeMat);
+  m.position.set(x, y, z);
+  laptopGroup.add(m);
+});
+
+// Keyboard surface
+const kbGeo = new THREE.BoxGeometry(2.9, 0.012, 1.75);
 const kb = new THREE.Mesh(kbGeo, keyboardMat);
-kb.position.set(0, 0.045, 0.1);
+kb.position.set(0, 0.052, 0.1);
 laptopGroup.add(kb);
 
 // Trackpad
-const tpGeo = new THREE.BoxGeometry(0.8, 0.005, 0.55);
-const tpMat = new THREE.MeshPhysicalMaterial({ color: 0x181c23, roughness: 0.3, metalness: 0.5 });
+const tpGeo = new THREE.BoxGeometry(0.95, 0.006, 0.62);
 const tp = new THREE.Mesh(tpGeo, tpMat);
-tp.position.set(0, 0.046, 0.55);
+tp.position.set(0, 0.048, 0.72);
 laptopGroup.add(tp);
 
-// Hinge bar
-const hingeGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.4, 16);
-const hinge = new THREE.Mesh(hingeGeo, hingeEdgeMat);
-hinge.rotation.z = Math.PI / 2;
-hinge.position.set(0, 0.06, -1.0);
-laptopGroup.add(hinge);
-
-// Screen lid group (pivots from hinge)
-const lidGroup = new THREE.Group();
-lidGroup.position.set(0, 0.06, -1.0);
-laptopGroup.add(lidGroup);
-
-// Screen outer shell
-const lidGeo = new THREE.BoxGeometry(3.2, 0.07, 2.05);
-const lid = new THREE.Mesh(lidGeo, bodyMat);
-lid.position.set(0, 1.02, 1.0);
-lid.castShadow = true;
-lidGroup.add(lid);
-
-// Screen bezel inset
-const bezelGeo = new THREE.BoxGeometry(2.9, 0.02, 1.75);
-const bezel = new THREE.Mesh(bezelGeo, screenBezelMat);
-bezel.position.set(0, 1.06, 1.0);
-lidGroup.add(bezel);
-
-// Screen display panel
-const dispGeo = new THREE.BoxGeometry(2.7, 0.01, 1.55);
-const display = new THREE.Mesh(dispGeo, screenMat);
-display.position.set(0, 1.07, 1.0);
-lidGroup.add(display);
-
-// Camera dot
-const camGeo = new THREE.SphereGeometry(0.025, 8, 8);
-const camMat = new THREE.MeshStandardMaterial({ color: 0x0a0c0f, roughness: 0.5 });
-const cam = new THREE.Mesh(camGeo, camMat);
-cam.position.set(0, 1.07, -0.02);
-lidGroup.add(cam);
-
-// Apple-style logo area (subtle indent)
-const logoGeo = new THREE.BoxGeometry(0.4, 0.005, 0.3);
-const logoMat = new THREE.MeshPhysicalMaterial({ color: 0x1a1e2a, metalness: 0.9, roughness: 0.1 });
-const logo = new THREE.Mesh(logoGeo, logoMat);
-logo.position.set(0, 0.98, 1.0);
-lidGroup.add(logo);
-
-// Tilt lid to ~110 degrees open
-lidGroup.rotation.x = -Math.PI * 0.61;
-
-// ─── GROUND REFLECTION PLANE ───────────────────────────────────────────────
-const groundGeo = new THREE.PlaneGeometry(20, 20);
-const groundMat = new THREE.MeshStandardMaterial({
-  color: 0x0a0c0f,
-  roughness: 1,
-  metalness: 0,
-  transparent: true,
-  opacity: 0,
+// Rubber feet (4 small rounded cylinders)
+[[-1.4,-0.048,-0.9],[1.4,-0.048,-0.9],[-1.4,-0.048,0.9],[1.4,-0.048,0.9]].forEach(([x,y,z]) => {
+  const fGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.02, 16);
+  const f = new THREE.Mesh(fGeo, rubberFeetMat);
+  f.position.set(x, y, z);
+  laptopGroup.add(f);
 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.5;
-ground.receiveShadow = true;
-scene.add(ground);
 
-// ─── GLOW PARTICLES ────────────────────────────────────────────────────────
-const partCount = 120;
-const positions = new Float32Array(partCount * 3);
-const colors = new Float32Array(partCount * 3);
-const palettes = [
-  [0.31, 1.0, 0.69],   // #4fffb0 green
-  [0.49, 0.23, 0.93],  // #7c3aed purple
-  [0.96, 0.62, 0.04],  // #f59e0b amber
-  [0.27, 0.4, 1.0],    // #4466ff blue
-];
-
-for (let i = 0; i < partCount; i++) {
-  positions[i * 3]     = (Math.random() - 0.5) * 14;
-  positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
-  positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-  const col = palettes[Math.floor(Math.random() * palettes.length)];
-  colors[i * 3]     = col[0];
-  colors[i * 3 + 1] = col[1];
-  colors[i * 3 + 2] = col[2];
+// Speaker grilles (subtle bars)
+for (let side = -1; side <= 1; side += 2) {
+  for (let j = 0; j < 5; j++) {
+    const sGeo = new THREE.BoxGeometry(0.06, 0.01, 0.22);
+    const sMat = new THREE.MeshStandardMaterial({ color: 0x0e1016, roughness: 0.9 });
+    const s = new THREE.Mesh(sGeo, sMat);
+    s.position.set(side * 1.45 + j * side * 0.0, 0.046, -0.55 + j * 0.06);
+    laptopGroup.add(s);
+  }
 }
 
-const partGeo = new THREE.BufferGeometry();
-partGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-partGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+// Hinge
+const hingeGeo = new THREE.CylinderGeometry(0.045, 0.045, 2.6, 24);
+const hingeBarL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 16), edgeMat);
+const hingeBarR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 16), edgeMat);
+[hingeBarL, hingeBarR].forEach((h, i) => {
+  h.rotation.z = Math.PI / 2;
+  h.position.set(i === 0 ? -0.9 : 0.9, 0.048, -1.12);
+  laptopGroup.add(h);
+});
 
-const partMat = new THREE.PointsMaterial({
-  size: 0.04,
-  vertexColors: true,
+// ── SCREEN LID (pivots from back edge) ──
+const lidGroup = new THREE.Group();
+lidGroup.position.set(0, 0.048, -1.15);
+laptopGroup.add(lidGroup);
+
+// Lid outer shell
+const lidGeo = new THREE.BoxGeometry(3.4, 0.075, 2.25);
+const lidMesh = new THREE.Mesh(lidGeo, bodyMat);
+lidMesh.position.set(0, 1.125, 1.1);
+lidMesh.castShadow = true;
+lidGroup.add(lidMesh);
+
+// Screen bezel (inner face)
+const bGeo = new THREE.BoxGeometry(3.05, 0.025, 1.9);
+const bMesh = new THREE.Mesh(bGeo, bezelMat);
+bMesh.position.set(0, 1.163, 1.1);
+lidGroup.add(bMesh);
+
+// Display panel
+const dispGeo = new THREE.BoxGeometry(2.82, 0.012, 1.72);
+const display = new THREE.Mesh(dispGeo, screenMat);
+display.position.set(0, 1.164, 1.1);
+lidGroup.add(display);
+
+// Webcam dot
+const camDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.028, 12, 12),
+  new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 0.4 })
+);
+camDot.position.set(0, 1.164, 0.065);
+lidGroup.add(camDot);
+
+// Back logo area (subtle glossy)
+const logoMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(0.45, 0.006, 0.34),
+  new THREE.MeshPhysicalMaterial({ color: 0x1c2030, metalness: 0.95, roughness: 0.05 })
+);
+logoMesh.position.set(0, 1.085, 1.1);
+lidGroup.add(logoMesh);
+
+// ── LID STATE: start CLOSED (rotation.x = 0 means flat/closed) ──
+// Closed = x: 0 (lid folded flat over base)
+// Open   = x: -Math.PI * 0.63 (approx 113°)
+const LID_CLOSED = 0;
+const LID_OPEN = -Math.PI * 0.63;
+lidGroup.rotation.x = LID_CLOSED;
+
+// ─── REFLECTION DISC (shadow/glow on ground) ─────────────────────────────
+const discGeo = new THREE.CircleGeometry(2.4, 64);
+const discMat = new THREE.MeshBasicMaterial({
+  color: 0x4fffb0,
   transparent: true,
-  opacity: 0.55,
+  opacity: 0.035,
   blending: THREE.AdditiveBlending,
   depthWrite: false,
 });
-const particles = new THREE.Points(partGeo, partMat);
+const disc = new THREE.Mesh(discGeo, discMat);
+disc.rotation.x = -Math.PI / 2;
+disc.position.y = -0.56;
+scene.add(disc);
+
+// Shadow blur disc (dark)
+const shadowGeo = new THREE.CircleGeometry(1.8, 64);
+const shadowMat = new THREE.MeshBasicMaterial({
+  color: 0x000000,
+  transparent: true,
+  opacity: 0.25,
+  depthWrite: false,
+});
+const shadowDisc = new THREE.Mesh(shadowGeo, shadowMat);
+shadowDisc.rotation.x = -Math.PI / 2;
+shadowDisc.position.y = -0.555;
+scene.add(shadowDisc);
+
+// ─── PARTICLES ──────────────────────────────────────────────────────────────
+const partCount = 180;
+const pPos = new Float32Array(partCount * 3);
+const pCol = new Float32Array(partCount * 3);
+const palettes = [[0.31,1.0,0.69],[0.49,0.23,0.93],[0.96,0.62,0.04],[0.27,0.4,1.0]];
+for (let i = 0; i < partCount; i++) {
+  pPos[i*3]   = (Math.random()-0.5)*16;
+  pPos[i*3+1] = (Math.random()-0.5)*10;
+  pPos[i*3+2] = (Math.random()-0.5)*12;
+  const c = palettes[Math.floor(Math.random()*palettes.length)];
+  pCol[i*3]=c[0]; pCol[i*3+1]=c[1]; pCol[i*3+2]=c[2];
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+const pMat = new THREE.PointsMaterial({
+  size: 0.045, vertexColors: true, transparent: true, opacity: 0.5,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+});
+const particles = new THREE.Points(pGeo, pMat);
 scene.add(particles);
 
-// ─── FLOATING RINGS (ambient halo) ─────────────────────────────────────────
-const ring1Geo = new THREE.TorusGeometry(2.2, 0.008, 8, 80);
-const ring1Mat = new THREE.MeshBasicMaterial({ color: 0x4fffb0, transparent: true, opacity: 0.12 });
-const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
-ring1.rotation.x = Math.PI / 2.2;
+// ─── RINGS ──────────────────────────────────────────────────────────────────
+const ring1 = new THREE.Mesh(
+  new THREE.TorusGeometry(2.5, 0.009, 8, 100),
+  new THREE.MeshBasicMaterial({ color: 0x4fffb0, transparent: true, opacity: 0.10, blending: THREE.AdditiveBlending })
+);
+ring1.rotation.x = Math.PI / 2.1;
 scene.add(ring1);
 
-const ring2Geo = new THREE.TorusGeometry(2.9, 0.005, 8, 80);
-const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.07 });
-const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-ring2.rotation.x = Math.PI / 2.5;
-ring2.rotation.z = 0.3;
+const ring2 = new THREE.Mesh(
+  new THREE.TorusGeometry(3.3, 0.006, 8, 100),
+  new THREE.MeshBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending })
+);
+ring2.rotation.x = Math.PI / 2.4;
+ring2.rotation.z = 0.4;
 scene.add(ring2);
 
-// ─── CURSOR BLINK ANIMATION ON TEXTURE ─────────────────────────────────────
+// ─── STATE & ANIMATION ──────────────────────────────────────────────────────
+let isOpen = false;
+let isAnimating = false;
+let cursorBlink = true;
+
+// Lid angle spring state
+const spring = { angle: LID_CLOSED };
+
+function openLid() {
+  if (isOpen || isAnimating) return;
+  isOpen = true;
+  isAnimating = true;
+
+  // Animate camera position upward/back slightly
+  gsap.to(camera.position, {
+    y: 1.8, z: 6.0,
+    duration: 1.4, ease: 'power3.out'
+  });
+  controls.target.set(0, 0.6, 0);
+
+  // Animate the lid with elastic spring overshoot — exactly like pmndrs
+  gsap.to(spring, {
+    angle: LID_OPEN,
+    duration: 1.6,
+    ease: 'elastic.out(1, 0.55)',
+    onUpdate: () => {
+      lidGroup.rotation.x = spring.angle;
+    },
+    onComplete: () => {
+      isAnimating = false;
+      // Fade screen in
+      gsap.to({ t: 0 }, {
+        t: 1, duration: 0.8, ease: 'power2.out',
+        onUpdate: function() { drawScreen(this.targets()[0].t); },
+        onComplete: () => {
+          // Start screen glow
+          gsap.to(screenLight, { intensity: 2.2, duration: 0.6, ease: 'power2.out' });
+        }
+      });
+      // After lid fully open — open portfolio overlay
+      setTimeout(() => { openPortfolio(); }, 600);
+    }
+  });
+
+  // Disc glow flare up
+  gsap.to(discMat, { opacity: 0.08, duration: 0.8, ease: 'power2.out' });
+}
+
+// Click hint text update
+const clickOpenEl = document.querySelector('.click-open');
+if (clickOpenEl) clickOpenEl.textContent = '↑ Click laptop to open';
+
+// ─── CURSOR BLINK ──────────────────────────────────────────────────────────
 let cursorOn = true;
 setInterval(() => {
+  if (!isOpen) return;
   cursorOn = !cursorOn;
-  const startY2 = 56;
-  const lineH = 30;
-  ctx.fillStyle = cursorOn ? '#4fffb0' : '#0b0e15';
-  ctx.fillRect(60, startY2 + 19 * lineH, 3, 18);
+  ctx.globalAlpha = cursorOn ? 0.9 : 0;
+  ctx.fillStyle = '#4fffb0';
+  ctx.fillRect(72, 42 + 30 + 21 * 30, 3, 20);
+  ctx.globalAlpha = 1;
   screenTexture.needsUpdate = true;
 }, 600);
 
@@ -913,28 +1026,35 @@ function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
 
-  // Float laptop up/down
-  laptopGroup.position.y = Math.sin(t * 0.8) * 0.12;
+  // Float the whole laptop (pmndrs-style bob)
+  laptopGroup.position.y = Math.sin(t * 0.9) * 0.14;
 
-  // Gentle lateral sway
-  laptopGroup.rotation.z = Math.sin(t * 0.5) * 0.02;
+  // Very gentle sway
+  laptopGroup.rotation.z = Math.sin(t * 0.55) * 0.018;
+  laptopGroup.rotation.x = Math.sin(t * 0.4) * 0.008;
 
-  // Breathing screen light
-  screenLight.intensity = 1.8 + Math.sin(t * 1.2) * 0.4;
+  // Orbiting accent lights
+  accentLight.position.x = Math.sin(t * 0.38) * 4;
+  accentLight.position.z = Math.cos(t * 0.38) * 4;
+  rimLight.position.x = Math.sin(t * 0.28 + Math.PI) * 4;
+  rimLight.position.z = Math.cos(t * 0.28 + Math.PI) * 3;
 
-  // Rotating accent lights
-  accentLight.position.x = Math.sin(t * 0.4) * 3;
-  accentLight.position.z = Math.cos(t * 0.4) * 3;
-  rimLight.position.x = Math.sin(t * 0.3 + Math.PI) * 3;
-  rimLight.position.z = Math.cos(t * 0.3 + Math.PI) * 2;
+  // Shadow disc breathes with float
+  shadowDisc.position.y = -0.555 - Math.sin(t * 0.9) * 0.04;
+  shadowDisc.scale.setScalar(1 - Math.sin(t * 0.9) * 0.06);
 
-  // Particle drift
-  particles.rotation.y = t * 0.04;
-  particles.rotation.x = t * 0.015;
+  // Particles drift
+  particles.rotation.y = t * 0.035;
+  particles.rotation.x = t * 0.012;
 
-  // Ring rotation
-  ring1.rotation.z = t * 0.08;
-  ring2.rotation.z = -t * 0.05;
+  // Rings
+  ring1.rotation.z = t * 0.07;
+  ring2.rotation.z = -t * 0.045;
+
+  // Screen light breathes when open
+  if (isOpen) {
+    screenLight.intensity = 2.2 + Math.sin(t * 1.3) * 0.35;
+  }
 
   controls.update();
   renderer.render(scene, camera);
@@ -948,32 +1068,48 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ─── CLICK ON LAPTOP → OPEN PORTFOLIO ──────────────────────────────────────
+// ─── RAYCASTER FOR CLICK & HOVER ───────────────────────────────────────────
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
+function getHits(e) {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  return raycaster.intersectObjects(laptopGroup.children, true);
+}
+
 canvas.addEventListener('click', (e) => {
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(laptopGroup.children, true);
-  if (hits.length > 0) openPortfolio();
+  if (getHits(e).length > 0) openLid();
 });
 
-// Hover cursor
 canvas.addEventListener('mousemove', (e) => {
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(laptopGroup.children, true);
-  canvas.style.cursor = hits.length > 0 ? 'pointer' : 'grab';
+  const hits = getHits(e);
+  if (hits.length > 0) {
+    canvas.style.cursor = 'pointer';
+    // Subtle hover: slight lid tease if closed
+    if (!isOpen && !isAnimating) {
+      gsap.to(spring, { angle: -0.08, duration: 0.4, ease: 'power2.out',
+        onUpdate: () => { lidGroup.rotation.x = spring.angle; }
+      });
+    }
+  } else {
+    canvas.style.cursor = 'grab';
+    if (!isOpen && !isAnimating) {
+      gsap.to(spring, { angle: LID_CLOSED, duration: 0.6, ease: 'power2.out',
+        onUpdate: () => { lidGroup.rotation.x = spring.angle; }
+      });
+    }
+  }
 });
 
-// Stop auto-rotate on user interaction
 canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
 canvas.addEventListener('pointerup', () => {
   setTimeout(() => { controls.autoRotate = true; }, 3000);
 });
+
+// expose so the click-open button also works
+window._openLid = openLid;
 </script>
 
 <script>
