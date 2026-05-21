@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
 
 <style>
+/* ===================== RESET & BASE ===================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg: #0a0c0f;
@@ -22,6 +23,7 @@
   --muted: #6b7280;
   --bright: #ffffff;
   --laptop-glow: rgba(79,255,176,0.15);
+  --mode: dark;
 }
 [data-theme="light"] {
   --bg: #f0f2f7;
@@ -42,6 +44,7 @@ body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text);
+  transition: background 0.4s, color 0.4s;
   overflow-x: hidden;
 }
 
@@ -81,32 +84,51 @@ body::before {
   letter-spacing: 0.05em;
 }
 
-/* ===================== THREE.JS CANVAS SCENE ===================== */
+/* ===================== SCENE — OUTER WORLD ===================== */
 #scene {
   position: relative;
   width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
   overflow: hidden;
   background: var(--bg);
+  transition: all 0.8s cubic-bezier(0.4,0,0.2,1);
 }
 
-#three-canvas {
+/* ambient gradient orbs */
+.orb {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: grab;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: orb-drift 12s ease-in-out infinite alternate;
 }
-#three-canvas:active { cursor: grabbing; }
+.orb-1 { width: 500px; height: 500px; background: rgba(79,255,176,0.07); top: -10%; left: -10%; animation-delay: 0s; }
+.orb-2 { width: 400px; height: 400px; background: rgba(124,58,237,0.08); bottom: -5%; right: -5%; animation-delay: 3s; }
+.orb-3 { width: 300px; height: 300px; background: rgba(245,158,11,0.05); top: 30%; right: 10%; animation-delay: 6s; }
+[data-theme="light"] .orb-1 { background: rgba(5,150,105,0.08); }
+[data-theme="light"] .orb-2 { background: rgba(124,58,237,0.06); }
 
-/* ===================== OVERLAY UI (above canvas) ===================== */
+@keyframes orb-drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px, 20px) scale(1.1); } }
+
+/* grid lines bg */
+.grid-bg {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 100%);
+  pointer-events: none;
+}
+
+/* floating name above laptop */
 .scene-name {
   position: absolute;
-  top: 9%;
+  top: 12%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
   z-index: 10;
-  pointer-events: none;
   animation: float-in 1.2s cubic-bezier(0.16,1,0.3,1) both;
 }
 .scene-name h1 {
@@ -137,7 +159,6 @@ body::before {
   flex-direction: column;
   gap: 12px;
   z-index: 10;
-  pointer-events: none;
   animation: slide-in-left 1.4s cubic-bezier(0.16,1,0.3,1) both;
 }
 .tag {
@@ -145,12 +166,13 @@ body::before {
   font-size: 0.68rem;
   color: var(--muted);
   border: 1px solid var(--border);
-  background: rgba(10,12,15,0.6);
-  backdrop-filter: blur(8px);
+  background: var(--surface);
   padding: 6px 12px;
   border-radius: 4px;
   white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
 }
+.tag:hover { color: var(--accent); border-color: var(--accent); }
 
 /* floating stats right */
 .scene-stats {
@@ -163,7 +185,6 @@ body::before {
   gap: 16px;
   z-index: 10;
   text-align: right;
-  pointer-events: none;
   animation: slide-in-right 1.4s cubic-bezier(0.16,1,0.3,1) both;
 }
 .stat-num {
@@ -184,12 +205,11 @@ body::before {
 /* scroll hint bottom */
 .scene-hint {
   position: absolute;
-  bottom: 6%;
+  bottom: 8%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
   text-align: center;
-  pointer-events: all;
   animation: fade-in 2s ease both 1.5s;
 }
 .scene-hint p {
@@ -199,17 +219,9 @@ body::before {
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
-.scene-hint .click-open {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem;
-  color: var(--accent);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-  cursor: pointer;
+.chevron-anim {
+  display: flex; justify-content: center; margin-top: 6px;
 }
-.scene-hint .click-open:hover { opacity: 0.7; }
-.chevron-anim { display: flex; justify-content: center; margin-top: 6px; }
 .chevron-anim span {
   display: block; width: 10px; height: 10px;
   border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
@@ -217,23 +229,56 @@ body::before {
   animation: chevron-bounce 1.5s ease-in-out infinite;
 }
 
-/* ===================== KEYFRAMES ===================== */
-@keyframes float-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ===================== LAPTOP ===================== */
+#laptop-wrap {
+  position: relative;
+  z-index: 20;
+  cursor: pointer;
+  animation: float-up 1s cubic-bezier(0.16,1,0.3,1) both 0.3s;
 }
-@keyframes slide-in-left {
-  from { opacity: 0; transform: translateY(-50%) translateX(-30px); }
-  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+#laptop-wrap:hover #laptop-body { transform: perspective(900px) rotateX(0deg); }
+#laptop-wrap:hover .laptop-glow { opacity: 1; }
+
+.laptop-glow {
+  position: absolute;
+  bottom: -30px; left: 50%;
+  transform: translateX(-50%);
+  width: 320px; height: 40px;
+  background: radial-gradient(ellipse, var(--accent) 0%, transparent 70%);
+  opacity: 0.3;
+  filter: blur(16px);
+  transition: opacity 0.4s;
+  pointer-events: none;
 }
-@keyframes slide-in-right {
-  from { opacity: 0; transform: translateY(-50%) translateX(30px); }
-  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+/* SVG laptop */
+#laptop-svg {
+  width: clamp(280px, 38vw, 480px);
+  height: auto;
+  filter: drop-shadow(0 20px 60px rgba(79,255,176,0.12));
+  transition: filter 0.4s;
 }
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes chevron-bounce {
-  0%, 100% { transform: rotate(45deg) translateY(0); opacity: 0.5; }
-  50% { transform: rotate(45deg) translateY(4px); opacity: 1; }
+#laptop-wrap:hover #laptop-svg {
+  filter: drop-shadow(0 30px 80px rgba(79,255,176,0.25));
+}
+
+.click-hint {
+  position: absolute;
+  bottom: -50px; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; color: var(--accent);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0; animation: fade-in 0.8s ease both 2s;
+}
+
+/* screen glow pulse */
+#laptop-screen-glow {
+  animation: screen-pulse 3s ease-in-out infinite;
+}
+@keyframes screen-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
 
 /* ===================== PORTFOLIO OVERLAY ===================== */
@@ -244,7 +289,7 @@ body::before {
   overflow-y: auto;
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.96);
+  transform: scale(0.95);
   transform-origin: center center;
   transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1);
 }
@@ -253,9 +298,12 @@ body::before {
   pointer-events: all;
   transform: scale(1);
 }
+
+/* close button */
 #close-btn {
   position: fixed;
-  bottom: 28px; left: 28px;
+  bottom: 28px;
+  left: 28px;
   z-index: 300;
   background: var(--surface2);
   border: 1px solid var(--border);
@@ -269,93 +317,434 @@ body::before {
   letter-spacing: 0.05em;
   display: flex; align-items: center; gap: 7px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  opacity: 0; pointer-events: none;
+  opacity: 0;
+  pointer-events: none;
 }
-#close-btn.visible { opacity: 1; pointer-events: all; }
+#close-btn.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+#portfolio-overlay.open #close-btn {
+  opacity: 1;
+  pointer-events: all;
+}
 #close-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); transform: translateY(-2px); }
 
 /* ===================== PORTFOLIO INNER ===================== */
-.port-inner { max-width: 900px; margin: 0 auto; padding: 60px 24px 100px; }
-.port-nav {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 0 48px; border-bottom: 1px solid var(--border); margin-bottom: 64px;
+.port-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 60px 24px 100px;
 }
-.port-nav-logo { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--bright); }
+/* nav bar */
+.port-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 48px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 64px;
+}
+.port-nav-logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--bright);
+}
 .port-nav-logo span { color: var(--accent); }
-.port-nav-links { display: flex; gap: 28px; list-style: none; }
-.port-nav-links a { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.port-nav-links {
+  display: flex; gap: 28px;
+  list-style: none;
+}
+.port-nav-links a {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s;
+  letter-spacing: 0.03em;
+}
 .port-nav-links a:hover { color: var(--accent); }
 
-.port-hero { margin-bottom: 80px; }
+/* hero section */
+.port-hero {
+  margin-bottom: 80px;
+}
 .port-hero-eyebrow {
-  font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--accent);
-  letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
   display: flex; align-items: center; gap: 10px;
 }
-.port-hero-eyebrow::before { content: ''; display: inline-block; width: 28px; height: 1px; background: var(--accent); }
-.port-hero h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(2rem, 5vw, 3.6rem); color: var(--bright); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 24px; }
-.port-hero h2 em { font-style: italic; color: var(--accent); font-weight: 600; }
-.port-hero-desc { font-size: 1.05rem; color: var(--muted); line-height: 1.7; max-width: 600px; margin-bottom: 36px; }
-.port-hero-links { display: flex; gap: 14px; flex-wrap: wrap; }
-.btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #000; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.85rem; padding: 11px 22px; border-radius: 6px; text-decoration: none; transition: opacity 0.2s, transform 0.2s; }
+.port-hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 28px; height: 1px;
+  background: var(--accent);
+}
+.port-hero h2 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  color: var(--bright);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.port-hero h2 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 600;
+}
+.port-hero-desc {
+  font-size: 1.05rem;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 600px;
+  margin-bottom: 36px;
+}
+.port-hero-links {
+  display: flex; gap: 14px; flex-wrap: wrap;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent);
+  color: #000;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 11px 22px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: opacity 0.2s, transform 0.2s;
+  letter-spacing: 0.02em;
+}
 .btn-primary:hover { opacity: 0.85; transform: translateY(-2px); }
-.btn-ghost { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 400; font-size: 0.85rem; padding: 11px 22px; border-radius: 6px; text-decoration: none; border: 1px solid var(--border); transition: border-color 0.2s, color 0.2s, transform 0.2s; }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  font-size: 0.85rem;
+  padding: 11px 22px;
+  border-radius: 6px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  letter-spacing: 0.02em;
+}
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
 
-.section-head { display: flex; align-items: center; gap: 16px; margin-bottom: 36px; }
-.section-head h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--bright); }
-.section-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+/* section headers */
+.section-head {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 36px;
+}
+.section-head h3 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--bright);
+  letter-spacing: -0.01em;
+}
+.section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ===================== SECTIONS ===================== */
 section { margin-bottom: 80px; }
 
-.projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.project-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: border-color 0.2s, transform 0.25s, box-shadow 0.25s; text-decoration: none; color: inherit; display: block; }
-.project-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(79,255,176,0.08); }
-.project-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
-.project-icon { font-size: 1.4rem; }
-.project-arrow { color: var(--muted); font-size: 1rem; transition: color 0.2s, transform 0.2s; }
+/* projects grid */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  transition: border-color 0.2s, transform 0.25s, box-shadow 0.25s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.project-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(79,255,176,0.08);
+}
+[data-theme="light"] .project-card:hover { box-shadow: 0 12px 40px rgba(5,150,105,0.1); }
+.project-card-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.project-icon {
+  font-size: 1.4rem;
+}
+.project-arrow {
+  color: var(--muted); font-size: 1rem;
+  transition: color 0.2s, transform 0.2s;
+}
 .project-card:hover .project-arrow { color: var(--accent); transform: translate(3px, -3px); }
-.project-card h4 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--bright); margin-bottom: 8px; }
-.project-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
-.project-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.project-tag { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--accent); background: rgba(79,255,176,0.08); border: 1px solid rgba(79,255,176,0.2); padding: 3px 8px; border-radius: 3px; }
+.project-card h4 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--bright);
+  margin-bottom: 8px;
+}
+.project-card p {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.project-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ptag {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--accent);
+  background: rgba(79,255,176,0.07);
+  padding: 3px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+[data-theme="light"] .ptag { background: rgba(5,150,105,0.08); }
+.project-impact {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.63rem;
+  color: var(--accent3);
+  margin-top: 10px;
+  display: flex; align-items: center; gap: 5px;
+}
 
-.research-list { display: flex; flex-direction: column; gap: 20px; }
-.research-item { display: flex; gap: 20px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s; }
-.research-item:hover { border-color: rgba(79,255,176,0.3); }
-.research-num { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--accent); opacity: 0.5; min-width: 32px; padding-top: 3px; }
-.research-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.95rem; color: var(--bright); margin-bottom: 6px; }
-.research-meta { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); letter-spacing: 0.05em; }
+/* patents */
+.patents-list {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.patent-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex; align-items: flex-start; gap: 14px;
+  transition: border-color 0.2s;
+}
+.patent-item:hover { border-color: var(--accent2); }
+.patent-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--accent2);
+  background: rgba(124,58,237,0.08);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.patent-text { font-size: 0.88rem; color: var(--text); line-height: 1.5; }
+.patent-text small { color: var(--muted); font-size: 0.75rem; display: block; margin-top: 3px; font-family: 'Space Mono', monospace; }
 
-.patents-list { display: flex; flex-direction: column; gap: 16px; }
-.patent-item { display: flex; gap: 20px; align-items: center; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-.patent-num { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--accent); opacity: 0.6; min-width: 160px; }
-.patent-text { font-size: 0.9rem; color: var(--text); }
-.patent-text small { display: block; font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-top: 3px; }
+/* achievements / programs */
+.achieve-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.achieve-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+.achieve-card:hover { border-color: var(--accent3); }
+.achieve-icon { font-size: 1.3rem; margin-bottom: 10px; }
+.achieve-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--bright);
+  margin-bottom: 4px;
+}
+.achieve-sub { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
 
-.achieve-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.achieve-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-.achieve-icon { font-size: 1.4rem; margin-bottom: 10px; }
-.achieve-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.9rem; color: var(--bright); margin-bottom: 6px; }
-.achieve-sub { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+/* skills */
+.skills-grid {
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+.skill-pill {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 7px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.skill-pill:hover { color: var(--accent); border-color: var(--accent); background: rgba(79,255,176,0.04); }
+[data-theme="light"] .skill-pill:hover { background: rgba(5,150,105,0.06); }
 
-.impact-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.impact-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; text-align: center; }
-.impact-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2.4rem; color: var(--accent); margin-bottom: 8px; }
-.impact-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 1rem; color: var(--bright); margin-bottom: 10px; }
-.impact-desc { font-size: 0.84rem; color: var(--muted); line-height: 1.6; }
+/* research */
+.research-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 24px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.research-card h4 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--bright);
+  margin-bottom: 6px;
+}
+.research-card p { font-size: 0.83rem; color: var(--muted); line-height: 1.6; }
+.research-badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 10px;
+  letter-spacing: 0.08em;
+}
 
-.skills-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.skill-pill { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); padding: 7px 14px; border-radius: 20px; transition: border-color 0.2s, color 0.2s; }
-.skill-pill:hover { border-color: var(--accent); color: var(--accent); }
+/* education */
+.edu-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  display: flex; gap: 20px; flex-wrap: wrap;
+}
+.edu-left { flex: 1; min-width: 200px; }
+.edu-school {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--bright);
+  margin-bottom: 4px;
+}
+.edu-prog {
+  font-size: 0.83rem; color: var(--accent); margin-bottom: 4px;
+}
+.edu-date {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem; color: var(--muted); margin-bottom: 12px;
+}
+.edu-subjects { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+.edu-right {
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+}
+.edu-score-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;
+}
+.edu-score {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800; font-size: 2.8rem;
+  color: var(--accent);
+  line-height: 1;
+}
+.edu-score span { font-size: 1.2rem; color: var(--muted); }
 
-.port-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 40px; border-top: 1px solid var(--border); }
-.port-footer-left { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted); }
-.port-footer-links { display: flex; gap: 20px; }
-.port-footer-links a { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 5px; transition: color 0.2s; }
+/* social impact */
+.impact-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+@media (max-width: 600px) { .impact-row { grid-template-columns: 1fr; } }
+.impact-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+.impact-card:hover { border-color: var(--accent3); }
+.impact-num {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 2rem;
+  color: var(--accent3);
+  line-height: 1; margin-bottom: 4px;
+}
+.impact-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600; font-size: 0.9rem;
+  color: var(--bright); margin-bottom: 6px;
+}
+.impact-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+/* footer */
+.port-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 40px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;
+  gap: 20px;
+}
+.port-footer-left {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; color: var(--muted);
+}
+.port-footer-links { display: flex; gap: 16px; }
+.port-footer-links a {
+  font-size: 0.78rem; color: var(--muted);
+  text-decoration: none; transition: color 0.2s;
+  display: flex; align-items: center; gap: 5px;
+}
 .port-footer-links a:hover { color: var(--accent); }
 
-.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
-.reveal.visible { opacity: 1; transform: translateY(0); }
+/* ===================== ANIMATIONS ===================== */
+@keyframes float-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes float-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateY(-50%) translateX(-30px); }
+  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateY(-50%) translateX(30px); }
+  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes chevron-bounce {
+  0%, 100% { transform: rotate(45deg) translateY(0); opacity: 0.5; }
+  50% { transform: rotate(45deg) translateY(4px); opacity: 1; }
+}
+
+/* scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 @media (max-width: 768px) {
   .scene-tags, .scene-stats { display: none; }
@@ -366,13 +755,16 @@ section { margin-bottom: 80px; }
 </style>
 </head>
 <body>
-
+<!-- theme toggle -->
 <span id="theme-toggle-label">THEME</span>
 <button id="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark"></button>
 
-<!-- THREE.JS SCENE -->
+<!-- ===================== OUTER SCENE ===================== -->
 <div id="scene">
-  <canvas id="three-canvas"></canvas>
+  <div class="grid-bg"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
 
   <div class="scene-name">
     <h1>Yash <span>Kewlani</span></h1>
@@ -407,158 +799,331 @@ section { margin-bottom: 80px; }
     </div>
   </div>
 
+  <!-- LAPTOP -->
+  <div id="laptop-wrap" onclick="openPortfolio()">
+    <div class="laptop-glow"></div>
+
+    <svg id="laptop-svg" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Base / keyboard -->
+      <rect x="30" y="252" width="420" height="44" rx="6" fill="#1a1e28" stroke="rgba(255,255,255,0.1)" stroke-width="1.2"/>
+      <rect x="30" y="252" width="420" height="10" rx="3" fill="#14171f"/>
+      <!-- Hinge -->
+      <rect x="80" y="248" width="320" height="8" rx="4" fill="#111318"/>
+      <!-- Screen outer -->
+      <rect x="60" y="20" width="360" height="234" rx="10" fill="#14171f" stroke="rgba(255,255,255,0.1)" stroke-width="1.2"/>
+      <!-- Screen bezel top notch -->
+      <circle cx="240" cy="30" r="4" fill="#0a0c0f"/>
+      <!-- Screen inner (display area) -->
+      <rect x="72" y="36" width="336" height="210" rx="5" fill="#0b0e15" id="laptop-screen-glow"/>
+      <!-- Screen content — code lines -->
+      <g opacity="0.7">
+        <rect x="88" y="56" width="80" height="5" rx="2" fill="var(--accent, #4fffb0)" opacity="0.9"/>
+        <rect x="88" y="68" width="140" height="4" rx="2" fill="#4466ff" opacity="0.6"/>
+        <rect x="96" y="80" width="100" height="4" rx="2" fill="#7c3aed" opacity="0.6"/>
+        <rect x="96" y="92" width="60" height="4" rx="2" fill="#f59e0b" opacity="0.6"/>
+        <rect x="96" y="104" width="120" height="4" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="88" y="116" width="90" height="4" rx="2" fill="#4466ff" opacity="0.6"/>
+        <rect x="96" y="128" width="160" height="4" rx="2" fill="rgba(255,255,255,0.15)"/>
+        <rect x="96" y="140" width="80" height="4" rx="2" fill="var(--accent, #4fffb0)" opacity="0.7"/>
+        <rect x="88" y="152" width="110" height="4" rx="2" fill="#7c3aed" opacity="0.5"/>
+        <rect x="96" y="164" width="140" height="4" rx="2" fill="rgba(255,255,255,0.12)"/>
+        <rect x="88" y="176" width="70" height="4" rx="2" fill="#f59e0b" opacity="0.5"/>
+        <rect x="88" y="188" width="130" height="4" rx="2" fill="rgba(255,255,255,0.1)"/>
+        <!-- cursor blink -->
+        <rect x="88" y="200" width="2" height="14" rx="1" fill="var(--accent, #4fffb0)" opacity="0.9">
+          <animate attributeName="opacity" values="0.9;0;0.9" dur="1.2s" repeatCount="indefinite"/>
+        </rect>
+        <!-- line numbers -->
+        <rect x="76" y="56" width="6" height="4" rx="1" fill="rgba(255,255,255,0.15)"/>
+        <rect x="76" y="68" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="80" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="92" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="104" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="116" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="128" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="140" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="152" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="164" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="176" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="188" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+        <rect x="76" y="200" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
+      </g>
+      <!-- glow on screen -->
+      <rect x="72" y="36" width="336" height="210" rx="5" fill="url(#screenGlow)" opacity="0.12"/>
+      <defs>
+        <radialGradient id="screenGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#4fffb0"/>
+          <stop offset="100%" stop-color="transparent"/>
+        </radialGradient>
+      </defs>
+      <!-- keyboard keys suggestion -->
+      <g opacity="0.25">
+        <rect x="50" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.3)"/>
+        <rect x="86" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="122" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="158" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="194" y="262" width="92" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="292" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="328" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="364" y="262" width="30" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        <rect x="400" y="262" width="50" height="8" rx="2" fill="rgba(255,255,255,0.3)"/>
+      </g>
+      <!-- trackpad -->
+      <rect x="185" y="278" width="110" height="14" rx="4" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.08)" stroke-width="0.8"/>
+    </svg>
+
+    <div class="click-hint">↑ click to open portfolio</div>
+  </div>
+
   <div class="scene-hint">
-    <div class="click-open" onclick="openPortfolio()">↑ Click to Open Portfolio</div>
-    <p>Drag to rotate · scroll to zoom</p>
+    <p>Click the laptop to explore</p>
     <div class="chevron-anim"><span></span></div>
   </div>
 </div>
 
-<!-- PORTFOLIO OVERLAY -->
+<!-- ===================== PORTFOLIO OVERLAY ===================== -->
+<button id="close-btn" onclick="closePortfolio()">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+  BACK
+</button>
+
 <div id="portfolio-overlay">
-  <button id="close-btn" onclick="closePortfolio()">← Back</button>
+
   <div class="port-inner">
+    <!-- NAV -->
     <nav class="port-nav">
-      <div class="port-nav-logo">Yash <span>Kewlani</span></div>
+      <div class="port-nav-logo">YK<span>.</span></div>
       <ul class="port-nav-links">
         <li><a href="#projects">Projects</a></li>
         <li><a href="#research">Research</a></li>
         <li><a href="#patents">Patents</a></li>
         <li><a href="#achievements">Achievements</a></li>
-        <li><a href="#skills">Skills</a></li>
+        <li><a href="#about">About</a></li>
       </ul>
     </nav>
 
-    <div class="port-hero reveal">
-      <div class="port-hero-eyebrow">IB Student & AI Researcher</div>
-      <h2>Building <em>intelligent</em><br>systems for a fairer world.</h2>
-      <p class="port-hero-desc">I'm Yash Kewlani — an IB student, AI builder, and researcher focused on healthcare tech, AI fairness, and robotics. 5 patents filed, multiple international recognitions, and a drive to make AI work for everyone.</p>
+    <!-- HERO -->
+    <section class="port-hero reveal" id="about">
+      <div class="port-hero-eyebrow">Available for opportunities</div>
+      <h2>I'm building AI that <em>matters</em> — in healthcare, fairness & beyond.</h2>
+      <p class="port-hero-desc">
+        I'm Yash Kewlani, an IB student researcher at NES International School, Mumbai. I build open-source AI products, publish research, file patents, and lead initiatives that use technology for public good — from cardiovascular risk prediction to algorithmic fairness.
+      </p>
       <div class="port-hero-links">
-        <a href="https://github.com/yakew7" target="_blank" class="btn-primary">GitHub ↗</a>
-        <a href="https://www.linkedin.com/in/yash-kewlani-7ab090357/" target="_blank" class="btn-ghost">LinkedIn ↗</a>
-        <a href="https://fair-code-five.vercel.app" target="_blank" class="btn-ghost">⚖️ Fair-Code ↗</a>
+        <a href="https://github.com/yakew7" target="_blank" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="https://www.linkedin.com/in/yash-kewlani-7ab090357/" target="_blank" class="btn-ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          LinkedIn
+        </a>
+        <a href="https://cardiovascular-disease-prediction-sandy.vercel.app" target="_blank" class="btn-ghost">
+          ↗ Live Project
+        </a>
       </div>
-    </div>
+    </section>
 
+    <!-- EDUCATION -->
+    <section id="education" class="reveal">
+      <div class="section-head"><h3>Education</h3></div>
+      <div class="edu-card">
+        <div class="edu-left">
+          <div class="edu-school">NES International School, Mumbai</div>
+          <div class="edu-prog">International Baccalaureate (IB) Diploma Programme</div>
+          <div class="edu-date">Expected Graduation: 2028</div>
+          <div class="edu-subjects">
+            <strong style="color:var(--text); font-size:0.78rem;">Subjects:</strong><br/>
+            Computer Science HL &nbsp;·&nbsp; Mathematics AA HL &nbsp;·&nbsp; Business Management HL<br/>
+            Physics SL &nbsp;·&nbsp; Hindi SL &nbsp;·&nbsp; Language &amp; Literature SL
+          </div>
+        </div>
+        <div class="edu-right">
+          <div class="edu-score-label">Academic Score</div>
+          <div class="edu-score">38<span>/42</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTS -->
     <section id="projects" class="reveal">
-      <div class="section-head"><h3>Projects</h3></div>
+      <div class="section-head"><h3>AI &amp; Open Source Projects</h3></div>
       <div class="projects-grid">
-        <a href="https://cardiovascular-disease-prediction-sandy.vercel.app" target="_blank" class="project-card">
-          <div class="project-card-top"><span class="project-icon">🫀</span><span class="project-arrow">↗</span></div>
-          <h4>Cardiovascular Disease Predictor</h4>
-          <p>ML-powered risk prediction tool for cardiovascular disease using patient data. Deployed on Vercel with real-time inference.</p>
-          <div class="project-tags"><span class="project-tag">Python</span><span class="project-tag">ML</span><span class="project-tag">Healthcare AI</span></div>
+
+        <a href="https://cardiovascular-disease-prediction-sandy.vercel.app" target="_blank" class="project-card hovered">
+          <div class="project-card-top">
+            <span class="project-icon">🫀</span>
+            <span class="project-arrow">↗</span>
+          </div>
+          <h4>Cardiovascular Disease Prediction</h4>
+          <p>AI-powered healthcare platform for cardiovascular risk prediction, preventive care, and medical AI accessibility — built to make clinical intelligence available to everyone.</p>
+          <div class="project-tags">
+            <span class="ptag">Python</span>
+            <span class="ptag">ML</span>
+            <span class="ptag">Healthcare AI</span>
+            <span class="ptag">Vercel</span>
+          </div>
+          <div class="project-impact">⚡ Live & deployed</div>
         </a>
-        <a href="https://fair-code-five.vercel.app" target="_blank" class="project-card">
-          <div class="project-card-top"><span class="project-icon">⚖️</span><span class="project-arrow">↗</span></div>
-          <h4>Fair-Code Initiative</h4>
-          <p>AI ethics and fairness awareness platform educating users on responsible AI development and algorithmic bias.</p>
-          <div class="project-tags"><span class="project-tag">AI Ethics</span><span class="project-tag">Education</span><span class="project-tag">Open Source</span></div>
+
+        <a href="https://fair-code-five.vercel.app" target="_blank" class="project-card hovered">
+          <div class="project-card-top">
+            <span class="project-icon">⚖️</span>
+            <span class="project-arrow">↗</span>
+          </div>
+          <h4>Fair-Code</h4>
+          <p>AI fairness and algorithmic bias awareness initiative — open-source development, ethical AI education, and public campaigns covering COMPAS bias, hiring discrimination, and credit-scoring unfairness.</p>
+          <div class="project-tags">
+            <span class="ptag">AI Fairness</span>
+            <span class="ptag">Open Source</span>
+            <span class="ptag">Ethics</span>
+            <span class="ptag">Research</span>
+          </div>
+          <div class="project-impact">⚡ 1,000+ views & growing</div>
         </a>
-        <div class="project-card">
-          <div class="project-card-top"><span class="project-icon">🤖</span><span class="project-arrow">—</span></div>
-          <h4>AI Guiding Robot</h4>
-          <p>Patented AI-based guiding robot registered with the Government of India. Designed for autonomous navigation and assistance.</p>
-          <div class="project-tags"><span class="project-tag">Robotics</span><span class="project-tag">AI</span><span class="project-tag">IoT</span></div>
-        </div>
-        <div class="project-card">
-          <div class="project-card-top"><span class="project-icon">🌱</span><span class="project-arrow">—</span></div>
-          <h4>EchoVolt</h4>
-          <p>Sustainability innovation converting noise pollution into usable electrical energy using piezoelectric sensors. Viksit Bharat Buildathon project.</p>
-          <div class="project-tags"><span class="project-tag">IoT</span><span class="project-tag">Sustainability</span><span class="project-tag">Hardware</span></div>
-        </div>
-        <div class="project-card">
-          <div class="project-card-top"><span class="project-icon">🌿</span><span class="project-arrow">—</span></div>
-          <h4>IoT Agriculture Robot</h4>
-          <p>Patented IoT-based robot for precision pesticide spraying in agriculture, reducing chemical waste and improving crop safety.</p>
-          <div class="project-tags"><span class="project-tag">IoT</span><span class="project-tag">Robotics</span><span class="project-tag">AgriTech</span></div>
-        </div>
-        <div class="project-card">
-          <div class="project-card-top"><span class="project-icon">🌾</span><span class="project-arrow">—</span></div>
-          <h4>Plant Health Monitoring Device</h4>
-          <p>AI-based handheld device for real-time plant health monitoring. Patented design for field-ready agricultural diagnostics.</p>
-          <div class="project-tags"><span class="project-tag">AI</span><span class="project-tag">Hardware</span><span class="project-tag">AgriTech</span></div>
-        </div>
+
       </div>
     </section>
 
+    <!-- RESEARCH -->
     <section id="research" class="reveal">
-      <div class="section-head"><h3>Research</h3></div>
-      <div class="research-list">
-        <div class="research-item">
-          <div class="research-num">01</div>
-          <div>
-            <div class="research-title">AI Fairness in Healthcare Diagnostics</div>
-            <div class="research-meta">Ongoing · Bias analysis in ML models for medical applications</div>
-          </div>
-        </div>
-        <div class="research-item">
-          <div class="research-num">02</div>
-          <div>
-            <div class="research-title">Insulin Affordability & Diabetes Care Inequality</div>
-            <div class="research-meta">Published · Social impact research on global insulin access disparities</div>
-          </div>
-        </div>
-        <div class="research-item">
-          <div class="research-num">03</div>
-          <div>
-            <div class="research-title">Piezoelectric Energy Harvesting from Noise Pollution</div>
-            <div class="research-meta">Government of India Buildathon · EchoVolt project</div>
-          </div>
-        </div>
-        <div class="research-item">
-          <div class="research-num">04</div>
-          <div>
-            <div class="research-title">Autonomous Navigation Systems for Assistive Robotics</div>
-            <div class="research-meta">Patent Filed · AI Guiding Robot — IN #417159-001</div>
-          </div>
-        </div>
+      <div class="section-head"><h3>Research &amp; Publications</h3></div>
+      <div class="research-card">
+        <div class="research-badge">IJRAR — Published</div>
+        <h4>Application of AI in Personalized Medicine</h4>
+        <p>Advanced secondary research on Machine Learning, Deep Learning, NLP, and Predictive Analytics in Healthcare. Focused on AI-assisted diagnostics, treatment optimization, clinical data analysis, and predictive healthcare systems. Published in the International Journal of Research and Analytical Reviews.</p>
       </div>
     </section>
 
+    <!-- PATENTS -->
     <section id="patents" class="reveal">
       <div class="section-head"><h3>Patents &amp; Innovation</h3></div>
       <div class="patents-list">
-        <div class="patent-item"><span class="patent-num">IN #417159-001</span><div class="patent-text">AI Based Guiding Robot<small>Government of India — Design Registration</small></div></div>
-        <div class="patent-item"><span class="patent-num">IN #417156-001</span><div class="patent-text">Cow Barn Cleaning Robot<small>Government of India — Design Registration</small></div></div>
-        <div class="patent-item"><span class="patent-num">IN #417157-001</span><div class="patent-text">IoT Based Agriculture Robot for Pesticide Spraying<small>Government of India — Design Registration</small></div></div>
-        <div class="patent-item"><span class="patent-num">IN #417158-001</span><div class="patent-text">AI Based Hand Held Plant Health Monitoring Device<small>Government of India — Design Registration</small></div></div>
-        <div class="patent-item"><span class="patent-num">DE DPMA 20 2024 102 920</span><div class="patent-text">Automatic Robot for Cleaning and Monitoring<small>German Patent / Utility Model — DPMA Registration</small></div></div>
+        <div class="patent-item">
+          <span class="patent-num">IN #417159-001</span>
+          <div class="patent-text">
+            AI Based Guiding Robot
+            <small>Government of India — Design Registration</small>
+          </div>
+        </div>
+        <div class="patent-item">
+          <span class="patent-num">IN #417156-001</span>
+          <div class="patent-text">
+            Cow Barn Cleaning Robot
+            <small>Government of India — Design Registration</small>
+          </div>
+        </div>
+        <div class="patent-item">
+          <span class="patent-num">IN #417157-001</span>
+          <div class="patent-text">
+            IoT Based Agriculture Robot for Pesticide Spraying
+            <small>Government of India — Design Registration</small>
+          </div>
+        </div>
+        <div class="patent-item">
+          <span class="patent-num">IN #417158-001</span>
+          <div class="patent-text">
+            AI Based Hand Held Plant Health Monitoring Device
+            <small>Government of India — Design Registration</small>
+          </div>
+        </div>
+        <div class="patent-item">
+          <span class="patent-num">DE DPMA 20 2024 102 920</span>
+          <div class="patent-text">
+            Automatic Robot for Cleaning and Monitoring
+            <small>German Patent / Utility Model — DPMA Registration</small>
+          </div>
+        </div>
       </div>
     </section>
 
+    <!-- ACHIEVEMENTS & PROGRAMS -->
     <section id="achievements" class="reveal">
       <div class="section-head"><h3>Programs, Competitions &amp; Leadership</h3></div>
       <div class="achieve-grid">
-        <div class="achieve-card"><div class="achieve-icon">🚀</div><div class="achieve-title">Mission Robotics — Kennedy Space Center</div><div class="achieve-sub">Secured 2nd place among 10 teams (25+ participants) in NASA's immersive robotics program.</div></div>
-        <div class="achieve-card"><div class="achieve-icon">🌍</div><div class="achieve-title">NASA International Space Apps Challenge</div><div class="achieve-sub">Developer in NASA's global open-source hackathon focused on space and Earth data challenges.</div></div>
-        <div class="achieve-card"><div class="achieve-icon">💡</div><div class="achieve-title">Jio Institute — Shapers 2.0</div><div class="achieve-sub">Selected for innovation-focused AI and leadership immersion program by Jio Institute.</div></div>
-        <div class="achieve-card"><div class="achieve-icon">🏛️</div><div class="achieve-title">Viksit Bharat Buildathon</div><div class="achieve-sub">Project Lead for EchoVolt — sustainability innovation converting noise pollution into electrical energy. Government of India initiative.</div></div>
-        <div class="achieve-card"><div class="achieve-icon">🏅</div><div class="achieve-title">SOF ICO — Global Rank 432</div><div class="achieve-sub">International Cyber Olympiad, 2022. Ranked 432nd globally out of hundreds of thousands of participants.</div></div>
-        <div class="achieve-card"><div class="achieve-icon">🥇</div><div class="achieve-title">SOF IMO — 1st Place (2015–2020)</div><div class="achieve-sub">Sustained 1st place achievements in the International Mathematics Olympiad across 5 consecutive years.</div></div>
+        <div class="achieve-card">
+          <div class="achieve-icon">🚀</div>
+          <div class="achieve-title">Mission Robotics — Kennedy Space Center</div>
+          <div class="achieve-sub">Secured 2nd place among 10 teams (25+ participants) in NASA's immersive robotics program.</div>
+        </div>
+        <div class="achieve-card">
+          <div class="achieve-icon">🌍</div>
+          <div class="achieve-title">NASA International Space Apps Challenge</div>
+          <div class="achieve-sub">Developer in NASA's global open-source hackathon focused on space and Earth data challenges.</div>
+        </div>
+        <div class="achieve-card">
+          <div class="achieve-icon">💡</div>
+          <div class="achieve-title">Jio Institute — Shapers 2.0</div>
+          <div class="achieve-sub">Selected for innovation-focused AI and leadership immersion program by Jio Institute.</div>
+        </div>
+        <div class="achieve-card">
+          <div class="achieve-icon">🏛️</div>
+          <div class="achieve-title">Viksit Bharat Buildathon</div>
+          <div class="achieve-sub">Project Lead for <strong style="color:var(--text)">EchoVolt</strong> — a sustainability innovation converting noise pollution into usable electrical energy using piezoelectric sensors. Government of India initiative.</div>
+        </div>
+        <div class="achieve-card">
+          <div class="achieve-icon">🏅</div>
+          <div class="achieve-title">SOF ICO — Global Rank 432</div>
+          <div class="achieve-sub">International Cyber Olympiad, 2022. Ranked 432nd globally out of hundreds of thousands of participants.</div>
+        </div>
+        <div class="achieve-card">
+          <div class="achieve-icon">🥇</div>
+          <div class="achieve-title">SOF IMO — 1st Place (2015–2020)</div>
+          <div class="achieve-sub">Sustained 1st place achievements in the International Mathematics Olympiad across 5 consecutive years.</div>
+        </div>
       </div>
     </section>
 
+    <!-- SOCIAL IMPACT -->
     <section id="impact" class="reveal">
       <div class="section-head"><h3>Social Impact &amp; Awareness</h3></div>
       <div class="impact-row">
-        <div class="impact-card"><div class="impact-num">700+</div><div class="impact-title">Insulin Access Awareness</div><div class="impact-desc">Founder-led campaign on insulin affordability inequality and diabetes-care accessibility — reached 700+ viewers with public engagement.</div></div>
-        <div class="impact-card"><div class="impact-num">1K+</div><div class="impact-title">Fair-Code Initiative</div><div class="impact-desc">AI ethics and fairness awareness platform for responsible AI education. 1,000+ views and ongoing growth in public engagement.</div></div>
+        <div class="impact-card">
+          <div class="impact-num">700+</div>
+          <div class="impact-title">Insulin Access Awareness</div>
+          <div class="impact-desc">Founder-led campaign on insulin affordability inequality and diabetes-care accessibility — reached 700+ viewers with public engagement.</div>
+        </div>
+        <div class="impact-card">
+          <div class="impact-num">1K+</div>
+          <div class="impact-title">Fair-Code Initiative</div>
+          <div class="impact-desc">AI ethics and fairness awareness platform for responsible AI education. 1,000+ views and ongoing growth in public engagement.</div>
+        </div>
       </div>
     </section>
 
+    <!-- SKILLS -->
     <section id="skills" class="reveal">
       <div class="section-head"><h3>Technical Skills</h3></div>
       <div class="skills-grid">
-        <span class="skill-pill">Python</span><span class="skill-pill">Artificial Intelligence</span><span class="skill-pill">Machine Learning</span><span class="skill-pill">Healthcare AI</span><span class="skill-pill">AI Fairness</span><span class="skill-pill">Robotics</span><span class="skill-pill">IoT Systems</span><span class="skill-pill">Data Analysis</span><span class="skill-pill">Research Analysis</span><span class="skill-pill">Computational Thinking</span><span class="skill-pill">Open Source Development</span><span class="skill-pill">Deep Learning</span><span class="skill-pill">NLP</span><span class="skill-pill">Predictive Analytics</span>
+        <span class="skill-pill">Python</span>
+        <span class="skill-pill">Artificial Intelligence</span>
+        <span class="skill-pill">Machine Learning</span>
+        <span class="skill-pill">Healthcare AI</span>
+        <span class="skill-pill">AI Fairness</span>
+        <span class="skill-pill">Robotics</span>
+        <span class="skill-pill">IoT Systems</span>
+        <span class="skill-pill">Data Analysis</span>
+        <span class="skill-pill">Research Analysis</span>
+        <span class="skill-pill">Computational Thinking</span>
+        <span class="skill-pill">Open Source Development</span>
+        <span class="skill-pill">Deep Learning</span>
+        <span class="skill-pill">NLP</span>
+        <span class="skill-pill">Predictive Analytics</span>
       </div>
     </section>
 
+    <!-- FOOTER -->
     <footer class="port-footer reveal">
       <div class="port-footer-left">© 2025 Yash Kewlani &nbsp;·&nbsp; Mumbai, India</div>
       <div class="port-footer-links">
-        <a href="https://github.com/yakew7" target="_blank">GitHub</a>
-        <a href="https://www.linkedin.com/in/yash-kewlani-7ab090357/" target="_blank">LinkedIn</a>
+        <a href="https://github.com/yakew7" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="https://www.linkedin.com/in/yash-kewlani-7ab090357/" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          LinkedIn
+        </a>
         <a href="https://fair-code-five.vercel.app" target="_blank">⚖️ Fair-Code</a>
         <a href="https://cardiovascular-disease-prediction-sandy.vercel.app" target="_blank">🫀 CV Predictor</a>
       </div>
@@ -566,554 +1131,8 @@ section { margin-bottom: 80px; }
   </div>
 </div>
 
-<!-- GSAP for spring animations -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-
-<!-- THREE.JS via CDN -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-// ─── SCENE SETUP ───────────────────────────────────────────────────────────
-const canvas = document.getElementById('three-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.4;
-
-const scene = new THREE.Scene();
-scene.background = null;
-
-// ─── CAMERA ────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 1.5, 6.5);
-
-// ─── ORBIT CONTROLS ────────────────────────────────────────────────────────
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.enablePan = false;
-controls.minDistance = 3;
-controls.maxDistance = 10;
-controls.minPolarAngle = Math.PI / 8;
-controls.maxPolarAngle = Math.PI / 1.9;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.5;
-controls.target.set(0, 0.3, 0);
-
-// ─── LIGHTS ────────────────────────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0x0a1a12, 1.2);
-scene.add(ambient);
-
-const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
-keyLight.position.set(5, 8, 5);
-keyLight.castShadow = true;
-scene.add(keyLight);
-
-const accentLight = new THREE.PointLight(0x4fffb0, 4.0, 14);
-accentLight.position.set(3, 3, 3);
-scene.add(accentLight);
-
-const rimLight = new THREE.PointLight(0x7c3aed, 2.5, 12);
-rimLight.position.set(-4, 2, -3);
-scene.add(rimLight);
-
-const warmLight = new THREE.PointLight(0xf59e0b, 1.2, 10);
-warmLight.position.set(0, -2, 4);
-scene.add(warmLight);
-
-const screenLight = new THREE.PointLight(0x4fffb0, 0, 8);
-screenLight.position.set(0, 0.5, 2);
-scene.add(screenLight);
-
-// ─── MATERIALS ─────────────────────────────────────────────────────────────
-const bodyMat = new THREE.MeshPhysicalMaterial({
-  color: 0x16191f,
-  metalness: 0.85,
-  roughness: 0.18,
-  reflectivity: 0.9,
-});
-const edgeMat = new THREE.MeshPhysicalMaterial({
-  color: 0x1e2230,
-  metalness: 0.95,
-  roughness: 0.05,
-});
-const bezelMat = new THREE.MeshStandardMaterial({
-  color: 0x07090f,
-  roughness: 0.7,
-  metalness: 0.1,
-});
-const keyboardMat = new THREE.MeshStandardMaterial({
-  color: 0x0e1016,
-  roughness: 0.85,
-  metalness: 0.1,
-});
-const tpMat = new THREE.MeshPhysicalMaterial({
-  color: 0x131720,
-  roughness: 0.25,
-  metalness: 0.6,
-});
-const rubberFeetMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 1 });
-
-// ─── SCREEN TEXTURE ────────────────────────────────────────────────────────
-const SC_W = 1280, SC_H = 800;
-const screenCanvas = document.createElement('canvas');
-screenCanvas.width = SC_W; screenCanvas.height = SC_H;
-const ctx = screenCanvas.getContext('2d');
-
-// Draw a rich code editor screen
-function drawScreen(open) {
-  const alpha = open === undefined ? 1 : open;
-  ctx.clearRect(0, 0, SC_W, SC_H);
-
-  // BG
-  ctx.fillStyle = '#0b0e15';
-  ctx.fillRect(0, 0, SC_W, SC_H);
-
-  if (alpha < 0.05) { screenTexture.needsUpdate = true; return; }
-
-  ctx.globalAlpha = alpha;
-
-  // Subtle grid
-  ctx.strokeStyle = 'rgba(79,255,176,0.025)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < SC_W; i += 48) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, SC_H); ctx.stroke(); }
-  for (let i = 0; i < SC_H; i += 48) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(SC_W, i); ctx.stroke(); }
-
-  // Tab bar
-  ctx.fillStyle = '#090c13';
-  ctx.fillRect(0, 0, SC_W, 42);
-  ctx.fillStyle = '#0f1420';
-  ctx.fillRect(0, 0, 200, 42);
-  ctx.fillStyle = '#4fffb0';
-  ctx.fillRect(0, 39, 200, 3);
-  ctx.font = '600 14px monospace';
-  ctx.fillStyle = '#e8eaf0';
-  ctx.fillText('main.py', 22, 26);
-  ctx.fillStyle = '#374151';
-  ctx.font = '14px monospace';
-  ctx.fillText('model.py', 220, 26);
-  ctx.fillText('utils.py', 380, 26);
-
-  // Sidebar
-  ctx.fillStyle = 'rgba(255,255,255,0.015)';
-  ctx.fillRect(0, 42, 56, SC_H);
-  // Line numbers
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.font = '12px monospace';
-  for (let i = 1; i <= 22; i++) {
-    ctx.fillText(String(i).padStart(2,' '), 16, 42 + 30 + (i - 1) * 30 + 12);
-  }
-
-  // Code lines
-  const lH = 30, sY = 42 + 30, sX = 72;
-  const codeLinesData = [
-    [[120,'#7c3aed',0.9],[16,'#4b5563',0.6],[200,'#4fffb0',0.85]],
-    [],
-    [[80,'#4fffb0',0.8],[12,'#4b5563',0.4],[100,'#e8eaf0',0.6],[12,'#4b5563',0.4],[70,'#f59e0b',0.85]],
-    [[20,'#4b5563',0.3],[90,'#4466ff',0.75],[12,'#4b5563',0.4],[220,'#e8eaf0',0.5]],
-    [[20,'#4b5563',0.3],[100,'#4466ff',0.75],[12,'#4b5563',0.4],[140,'#4fffb0',0.65]],
-    [[20,'#4b5563',0.3],[60,'#f59e0b',0.75],[12,'#4b5563',0.4],[180,'#e8eaf0',0.45]],
-    [],
-    [[80,'#4fffb0',0.8],[12,'#4b5563',0.4],[80,'#e8eaf0',0.6],[12,'#4b5563',0.4],[50,'#f59e0b',0.85]],
-    [[20,'#4b5563',0.3],[240,'#6b7280',0.55]],
-    [[20,'#4b5563',0.3],[110,'#4466ff',0.75],[12,'#4b5563',0.4],[140,'#4fffb0',0.65],[12,'#4b5563',0.4],[80,'#7c3aed',0.85]],
-    [[20,'#4b5563',0.3],[90,'#4466ff',0.75],[12,'#4b5563',0.4],[100,'#e8eaf0',0.45]],
-    [[20,'#4b5563',0.3],[130,'#e8eaf0',0.3]],
-    [],
-    [[60,'#4fffb0',0.95],[12,'#4b5563',0.4],[110,'#e8eaf0',0.65]],
-    [[20,'#4b5563',0.3],[240,'#6b7280',0.5]],
-    [[20,'#4b5563',0.3],[70,'#f59e0b',0.8],[12,'#4b5563',0.4],[160,'#4fffb0',0.55]],
-    [[20,'#4b5563',0.3],[100,'#4466ff',0.75],[12,'#4b5563',0.4],[120,'#e8eaf0',0.45]],
-    [[20,'#4b5563',0.3],[130,'#7c3aed',0.6]],
-    [[80,'#4fffb0',0.85]],
-    [],
-    [[60,'#4fffb0',0.9],[12,'#4b5563',0.4],[80,'#e8eaf0',0.6]],
-    [],
-  ];
-
-  codeLinesData.forEach((parts, i) => {
-    let x = sX;
-    parts.forEach(([w, c, o]) => {
-      ctx.globalAlpha = alpha * o;
-      ctx.fillStyle = c;
-      const h = 8;
-      const borderRadius = 3;
-      ctx.beginPath();
-      ctx.roundRect(x, sY + i * lH, w, h, borderRadius);
-      ctx.fill();
-      x += w + 12;
-    });
-  });
-  ctx.globalAlpha = alpha;
-
-  // Scanlines
-  for (let i = 0; i < SC_H; i += 4) {
-    ctx.fillStyle = 'rgba(0,0,0,0.04)';
-    ctx.fillRect(0, i, SC_W, 2);
-  }
-
-  // Vignette
-  const vig = ctx.createRadialGradient(SC_W/2, SC_H/2, SC_H*0.25, SC_W/2, SC_H/2, SC_H*0.8);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, SC_W, SC_H);
-
-  ctx.globalAlpha = 1;
-  screenTexture.needsUpdate = true;
-}
-
-const screenTexture = new THREE.CanvasTexture(screenCanvas);
-const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
-
-// Draw dark (closed) screen initially
-drawScreen(0);
-
-// ─── BUILD LAPTOP ──────────────────────────────────────────────────────────
-const laptopGroup = new THREE.Group();
-scene.add(laptopGroup);
-
-// ── BASE CHASSIS ──
-const baseGeo = new THREE.BoxGeometry(3.4, 0.09, 2.3);
-const base = new THREE.Mesh(baseGeo, bodyMat);
-base.castShadow = true;
-laptopGroup.add(base);
-
-// Bottom edge roundness strips (simulate chamfer)
-const chamferMats = [edgeMat, edgeMat, edgeMat, edgeMat];
-[[-1.68,0,0],[1.68,0,0],[0,0,-1.13],[0,0,1.13]].forEach(([x,y,z], i) => {
-  const isX = i < 2;
-  const geo = new THREE.BoxGeometry(isX ? 0.04 : 3.36, 0.09, isX ? 2.3 : 0.04);
-  const m = new THREE.Mesh(geo, edgeMat);
-  m.position.set(x, y, z);
-  laptopGroup.add(m);
-});
-
-// Keyboard surface
-const kbGeo = new THREE.BoxGeometry(2.9, 0.012, 1.75);
-const kb = new THREE.Mesh(kbGeo, keyboardMat);
-kb.position.set(0, 0.052, 0.1);
-laptopGroup.add(kb);
-
-// Trackpad
-const tpGeo = new THREE.BoxGeometry(0.95, 0.006, 0.62);
-const tp = new THREE.Mesh(tpGeo, tpMat);
-tp.position.set(0, 0.048, 0.72);
-laptopGroup.add(tp);
-
-// Rubber feet (4 small rounded cylinders)
-[[-1.4,-0.048,-0.9],[1.4,-0.048,-0.9],[-1.4,-0.048,0.9],[1.4,-0.048,0.9]].forEach(([x,y,z]) => {
-  const fGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.02, 16);
-  const f = new THREE.Mesh(fGeo, rubberFeetMat);
-  f.position.set(x, y, z);
-  laptopGroup.add(f);
-});
-
-// Speaker grilles (subtle bars)
-for (let side = -1; side <= 1; side += 2) {
-  for (let j = 0; j < 5; j++) {
-    const sGeo = new THREE.BoxGeometry(0.06, 0.01, 0.22);
-    const sMat = new THREE.MeshStandardMaterial({ color: 0x0e1016, roughness: 0.9 });
-    const s = new THREE.Mesh(sGeo, sMat);
-    s.position.set(side * 1.45 + j * side * 0.0, 0.046, -0.55 + j * 0.06);
-    laptopGroup.add(s);
-  }
-}
-
-// Hinge
-const hingeGeo = new THREE.CylinderGeometry(0.045, 0.045, 2.6, 24);
-const hingeBarL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 16), edgeMat);
-const hingeBarR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 16), edgeMat);
-[hingeBarL, hingeBarR].forEach((h, i) => {
-  h.rotation.z = Math.PI / 2;
-  h.position.set(i === 0 ? -0.9 : 0.9, 0.048, -1.12);
-  laptopGroup.add(h);
-});
-
-// ── SCREEN LID (pivots from back edge) ──
-const lidGroup = new THREE.Group();
-lidGroup.position.set(0, 0.048, -1.15);
-laptopGroup.add(lidGroup);
-
-// Lid outer shell
-const lidGeo = new THREE.BoxGeometry(3.4, 0.075, 2.25);
-const lidMesh = new THREE.Mesh(lidGeo, bodyMat);
-lidMesh.position.set(0, 1.125, 1.1);
-lidMesh.castShadow = true;
-lidGroup.add(lidMesh);
-
-// Screen bezel (inner face)
-const bGeo = new THREE.BoxGeometry(3.05, 0.025, 1.9);
-const bMesh = new THREE.Mesh(bGeo, bezelMat);
-bMesh.position.set(0, 1.163, 1.1);
-lidGroup.add(bMesh);
-
-// Display panel
-const dispGeo = new THREE.BoxGeometry(2.82, 0.012, 1.72);
-const display = new THREE.Mesh(dispGeo, screenMat);
-display.position.set(0, 1.164, 1.1);
-lidGroup.add(display);
-
-// Webcam dot
-const camDot = new THREE.Mesh(
-  new THREE.SphereGeometry(0.028, 12, 12),
-  new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 0.4 })
-);
-camDot.position.set(0, 1.164, 0.065);
-lidGroup.add(camDot);
-
-// Back logo area (subtle glossy)
-const logoMesh = new THREE.Mesh(
-  new THREE.BoxGeometry(0.45, 0.006, 0.34),
-  new THREE.MeshPhysicalMaterial({ color: 0x1c2030, metalness: 0.95, roughness: 0.05 })
-);
-logoMesh.position.set(0, 1.085, 1.1);
-lidGroup.add(logoMesh);
-
-// ── LID STATE: start CLOSED (rotation.x = 0 means flat/closed) ──
-// Closed = x: 0 (lid folded flat over base)
-// Open   = x: -Math.PI * 0.63 (approx 113°)
-const LID_CLOSED = 0;
-const LID_OPEN = -Math.PI * 0.63;
-lidGroup.rotation.x = LID_CLOSED;
-
-// ─── REFLECTION DISC (shadow/glow on ground) ─────────────────────────────
-const discGeo = new THREE.CircleGeometry(2.4, 64);
-const discMat = new THREE.MeshBasicMaterial({
-  color: 0x4fffb0,
-  transparent: true,
-  opacity: 0.035,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-});
-const disc = new THREE.Mesh(discGeo, discMat);
-disc.rotation.x = -Math.PI / 2;
-disc.position.y = -0.56;
-scene.add(disc);
-
-// Shadow blur disc (dark)
-const shadowGeo = new THREE.CircleGeometry(1.8, 64);
-const shadowMat = new THREE.MeshBasicMaterial({
-  color: 0x000000,
-  transparent: true,
-  opacity: 0.25,
-  depthWrite: false,
-});
-const shadowDisc = new THREE.Mesh(shadowGeo, shadowMat);
-shadowDisc.rotation.x = -Math.PI / 2;
-shadowDisc.position.y = -0.555;
-scene.add(shadowDisc);
-
-// ─── PARTICLES ──────────────────────────────────────────────────────────────
-const partCount = 180;
-const pPos = new Float32Array(partCount * 3);
-const pCol = new Float32Array(partCount * 3);
-const palettes = [[0.31,1.0,0.69],[0.49,0.23,0.93],[0.96,0.62,0.04],[0.27,0.4,1.0]];
-for (let i = 0; i < partCount; i++) {
-  pPos[i*3]   = (Math.random()-0.5)*16;
-  pPos[i*3+1] = (Math.random()-0.5)*10;
-  pPos[i*3+2] = (Math.random()-0.5)*12;
-  const c = palettes[Math.floor(Math.random()*palettes.length)];
-  pCol[i*3]=c[0]; pCol[i*3+1]=c[1]; pCol[i*3+2]=c[2];
-}
-const pGeo = new THREE.BufferGeometry();
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
-const pMat = new THREE.PointsMaterial({
-  size: 0.045, vertexColors: true, transparent: true, opacity: 0.5,
-  blending: THREE.AdditiveBlending, depthWrite: false,
-});
-const particles = new THREE.Points(pGeo, pMat);
-scene.add(particles);
-
-// ─── RINGS ──────────────────────────────────────────────────────────────────
-const ring1 = new THREE.Mesh(
-  new THREE.TorusGeometry(2.5, 0.009, 8, 100),
-  new THREE.MeshBasicMaterial({ color: 0x4fffb0, transparent: true, opacity: 0.10, blending: THREE.AdditiveBlending })
-);
-ring1.rotation.x = Math.PI / 2.1;
-scene.add(ring1);
-
-const ring2 = new THREE.Mesh(
-  new THREE.TorusGeometry(3.3, 0.006, 8, 100),
-  new THREE.MeshBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending })
-);
-ring2.rotation.x = Math.PI / 2.4;
-ring2.rotation.z = 0.4;
-scene.add(ring2);
-
-// ─── STATE & ANIMATION ──────────────────────────────────────────────────────
-let isOpen = false;
-let isAnimating = false;
-let cursorBlink = true;
-
-// Lid angle spring state
-const spring = { angle: LID_CLOSED };
-
-function openLid() {
-  if (isOpen || isAnimating) return;
-  isOpen = true;
-  isAnimating = true;
-
-  // Animate camera position upward/back slightly
-  gsap.to(camera.position, {
-    y: 1.8, z: 6.0,
-    duration: 1.4, ease: 'power3.out'
-  });
-  controls.target.set(0, 0.6, 0);
-
-  // Animate the lid with elastic spring overshoot — exactly like pmndrs
-  gsap.to(spring, {
-    angle: LID_OPEN,
-    duration: 1.6,
-    ease: 'elastic.out(1, 0.55)',
-    onUpdate: () => {
-      lidGroup.rotation.x = spring.angle;
-    },
-    onComplete: () => {
-      isAnimating = false;
-      // Fade screen in
-      gsap.to({ t: 0 }, {
-        t: 1, duration: 0.8, ease: 'power2.out',
-        onUpdate: function() { drawScreen(this.targets()[0].t); },
-        onComplete: () => {
-          // Start screen glow
-          gsap.to(screenLight, { intensity: 2.2, duration: 0.6, ease: 'power2.out' });
-        }
-      });
-      // After lid fully open — open portfolio overlay
-      setTimeout(() => { openPortfolio(); }, 600);
-    }
-  });
-
-  // Disc glow flare up
-  gsap.to(discMat, { opacity: 0.08, duration: 0.8, ease: 'power2.out' });
-}
-
-// Click hint text update
-const clickOpenEl = document.querySelector('.click-open');
-if (clickOpenEl) clickOpenEl.textContent = '↑ Click laptop to open';
-
-// ─── CURSOR BLINK ──────────────────────────────────────────────────────────
-let cursorOn = true;
-setInterval(() => {
-  if (!isOpen) return;
-  cursorOn = !cursorOn;
-  ctx.globalAlpha = cursorOn ? 0.9 : 0;
-  ctx.fillStyle = '#4fffb0';
-  ctx.fillRect(72, 42 + 30 + 21 * 30, 3, 20);
-  ctx.globalAlpha = 1;
-  screenTexture.needsUpdate = true;
-}, 600);
-
-// ─── ANIMATION LOOP ────────────────────────────────────────────────────────
-const clock = new THREE.Clock();
-
-function animate() {
-  requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
-
-  // Float the whole laptop (pmndrs-style bob)
-  laptopGroup.position.y = Math.sin(t * 0.9) * 0.14;
-
-  // Very gentle sway
-  laptopGroup.rotation.z = Math.sin(t * 0.55) * 0.018;
-  laptopGroup.rotation.x = Math.sin(t * 0.4) * 0.008;
-
-  // Orbiting accent lights
-  accentLight.position.x = Math.sin(t * 0.38) * 4;
-  accentLight.position.z = Math.cos(t * 0.38) * 4;
-  rimLight.position.x = Math.sin(t * 0.28 + Math.PI) * 4;
-  rimLight.position.z = Math.cos(t * 0.28 + Math.PI) * 3;
-
-  // Shadow disc breathes with float
-  shadowDisc.position.y = -0.555 - Math.sin(t * 0.9) * 0.04;
-  shadowDisc.scale.setScalar(1 - Math.sin(t * 0.9) * 0.06);
-
-  // Particles drift
-  particles.rotation.y = t * 0.035;
-  particles.rotation.x = t * 0.012;
-
-  // Rings
-  ring1.rotation.z = t * 0.07;
-  ring2.rotation.z = -t * 0.045;
-
-  // Screen light breathes when open
-  if (isOpen) {
-    screenLight.intensity = 2.2 + Math.sin(t * 1.3) * 0.35;
-  }
-
-  controls.update();
-  renderer.render(scene, camera);
-}
-animate();
-
-// ─── RESIZE ────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ─── RAYCASTER FOR CLICK & HOVER ───────────────────────────────────────────
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-function getHits(e) {
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  return raycaster.intersectObjects(laptopGroup.children, true);
-}
-
-canvas.addEventListener('click', (e) => {
-  if (getHits(e).length > 0) openLid();
-});
-
-canvas.addEventListener('mousemove', (e) => {
-  const hits = getHits(e);
-  if (hits.length > 0) {
-    canvas.style.cursor = 'pointer';
-    // Subtle hover: slight lid tease if closed
-    if (!isOpen && !isAnimating) {
-      gsap.to(spring, { angle: -0.08, duration: 0.4, ease: 'power2.out',
-        onUpdate: () => { lidGroup.rotation.x = spring.angle; }
-      });
-    }
-  } else {
-    canvas.style.cursor = 'grab';
-    if (!isOpen && !isAnimating) {
-      gsap.to(spring, { angle: LID_CLOSED, duration: 0.6, ease: 'power2.out',
-        onUpdate: () => { lidGroup.rotation.x = spring.angle; }
-      });
-    }
-  }
-});
-
-canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
-canvas.addEventListener('pointerup', () => {
-  setTimeout(() => { controls.autoRotate = true; }, 3000);
-});
-
-// expose so the click-open button also works
-window._openLid = openLid;
-</script>
-
 <script>
-// ─── THEME TOGGLE ──────────────────────────────────────────────────────────
+// ===================== THEME TOGGLE =====================
 const toggle = document.getElementById('theme-toggle');
 let isDark = true;
 toggle.addEventListener('click', () => {
@@ -1121,7 +1140,7 @@ toggle.addEventListener('click', () => {
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 });
 
-// ─── PORTFOLIO OPEN/CLOSE ──────────────────────────────────────────────────
+// ===================== LAPTOP OPEN/CLOSE =====================
 function openPortfolio() {
   const overlay = document.getElementById('portfolio-overlay');
   const closeBtn = document.getElementById('close-btn');
@@ -1136,19 +1155,40 @@ function closePortfolio() {
   overlay.classList.remove('open');
   closeBtn.classList.remove('visible');
 }
-window.openPortfolio = openPortfolio;
-window.closePortfolio = closePortfolio;
 
-// ─── SCROLL REVEAL ─────────────────────────────────────────────────────────
+// ===================== SCROLL REVEAL =====================
 function revealAll() {
   const els = document.querySelectorAll('#portfolio-overlay .reveal');
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.08 });
-  els.forEach(el => observer.observe(el));
+  els.forEach(el => { observer.observe(el); });
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closePortfolio(); });
+// ===================== LAPTOP FLOAT ANIMATION =====================
+const laptopWrap = document.getElementById('laptop-wrap');
+let floatT = 0;
+(function floatLaptop() {
+  floatT += 0.015;
+  const y = Math.sin(floatT) * 8;
+  laptopWrap.style.transform = `translateY(${y}px)`;
+  requestAnimationFrame(floatLaptop);
+})();
+
+// keyboard shortcut
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePortfolio();
+});
+
+// Mouse parallax on scene
+document.getElementById('scene').addEventListener('mousemove', e => {
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  const dx = (e.clientX - cx) / cx, dy = (e.clientY - cy) / cy;
+  document.querySelector('.scene-tags').style.transform = `translateY(calc(-50% + ${dy * 8}px)) translateX(${dx * 4}px)`;
+  document.querySelector('.scene-stats').style.transform = `translateY(calc(-50% + ${dy * 8}px)) translateX(${dx * -4}px)`;
+  document.querySelector('.orb-1').style.transform = `translate(${dx * 20}px, ${dy * 20}px) scale(1.05)`;
+  document.querySelector('.orb-2').style.transform = `translate(${dx * -15}px, ${dy * -15}px) scale(1.05)`;
+});
 </script>
 </body>
 </html>
